@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum POS - Restaurant Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .dark .glass-effect {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .receipt-print {
+            display: none;
+        }
+        
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .receipt-print {
+                display: block !important;
+                width: 80mm;
+                padding: 10px;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+            }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .category-btn.active {
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .order-item {
+            transition: all 0.2s ease;
+        }
+        
+        .order-item:hover {
+            transform: translateX(5px);
+            background: rgba(234, 88, 12, 0.1);
+        }
+        
+        .dark .order-item:hover {
+            background: rgba(234, 88, 12, 0.2);
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, rgba(234, 88, 12, 0.1) 0%, rgba(234, 179, 8, 0.1) 100%);
+            border: 1px solid rgba(234, 88, 12, 0.2);
+        }
+        
+        .dark .stat-card {
+            background: linear-gradient(135deg, rgba(234, 88, 12, 0.2) 0%, rgba(234, 179, 8, 0.2) 100%);
+        }
+        
+        .quantum-logo {
+            filter: drop-shadow(0 0 10px rgba(234, 88, 12, 0.5));
+        }
+        
+        .menu-item-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .menu-item-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .dark .menu-item-card:hover {
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .quantity-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .quantity-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .quantity-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .tab-active {
+            border-bottom: 3px solid #ea580c;
+            color: #ea580c;
+        }
+        
+        .dark .tab-active {
+            color: #fb923c;
+            border-bottom-color: #fb923c;
+        }
+        
+        .dining-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .dining-btn.active {
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(234, 88, 12, 0.4);
+        }
+        
+        .menu-image {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+        }
+        
+        .image-placeholder {
+            width: 100%;
+            height: 160px;
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+        }
+        
+        .dark .image-placeholder {
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+        }
+        
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #ea580c;
+            background: rgba(234, 88, 12, 0.05);
+        }
+        
+        .upload-area.dragover {
+            border-color: #ea580c;
+            background: rgba(234, 88, 12, 0.1);
+        }
+        
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700 no-print">
+            <div class="px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="quantum-logo flex items-center gap-3">
+                        <div class="w-10 h-10 bg-black dark:bg-white rounded-full flex items-center justify-center">
+                            <span class="text-white dark:text-black font-bold text-xl">Q</span>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-800 dark:text-white">QUANTUM</h1>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">TECH SOLUTIONS</p>
+                        </div>
+                    </div>
+                    <div class="h-8 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+                    <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Restaurant POS</h2>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleTheme()" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-moon dark:hidden text-gray-600"></i>
+                        <i class="fas fa-sun hidden dark:block text-yellow-400"></i>
+                    </button>
+                    <div class="text-right">
+                        <p id="current-time" class="text-sm font-medium text-gray-600 dark:text-gray-300"></p>
+                        <p id="current-date" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Tabs -->
+            <div class="px-4 border-t border-gray-200 dark:border-gray-700 flex gap-6 overflow-x-auto scrollbar-hide">
+                <button onclick="switchTab('pos')" id="tab-pos" class="tab-active py-3 px-2 font-medium text-sm whitespace-nowrap transition-colors hover:text-orange-600 dark:hover:text-orange-400">
+                    <i class="fas fa-cash-register mr-2"></i>POS Terminal
+                </button>
+                <button onclick="switchTab('orders')" id="tab-orders" class="py-3 px-2 font-medium text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap transition-colors hover:text-orange-600 dark:hover:text-orange-400">
+                    <i class="fas fa-list-alt mr-2"></i>Orders <span id="order-count-badge" class="ml-1 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 hidden">0</span>
+                </button>
+                <button onclick="switchTab('reports')" id="tab-reports" class="py-3 px-2 font-medium text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap transition-colors hover:text-orange-600 dark:hover:text-orange-400">
+                    <i class="fas fa-chart-bar mr-2"></i>Reports
+                </button>
+                <button onclick="switchTab('menu')" id="tab-menu" class="py-3 px-2 font-medium text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap transition-colors hover:text-orange-600 dark:hover:text-orange-400">
+                    <i class="fas fa-utensils mr-2"></i>Menu Manager
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-hidden">
+            <!-- POS Terminal View -->
+            <div id="view-pos" class="h-full flex flex-col lg:flex-row">
+                <!-- Menu Section -->
+                <div class="flex-1 flex flex-col overflow-hidden">
+                    <!-- Search and Filter -->
+                    <div class="p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex gap-3 mb-4">
+                            <div class="relative flex-1">
+                                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input type="text" id="menu-search" placeholder="Search menu items..." 
+                                    class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    oninput="filterMenu()">
+                            </div>
+                            <button onclick="clearSearch()" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Category Buttons -->
+                        <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-2" id="category-buttons">
+                            <!-- Categories injected by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Menu Grid -->
+                    <div class="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+                        <div id="menu-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            <!-- Menu items injected by JS -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Order Panel -->
+                <div class="w-full lg:w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col shadow-xl">
+                    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                            <i class="fas fa-shopping-cart text-orange-500"></i>
+                            Current Order
+                        </h3>
+                    </div>
+                    
+                    <!-- Dining Options -->
+                    <div class="p-4 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-200 dark:border-orange-800">
+                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Order Type</p>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setDiningType('dine-in')" id="dine-in-btn" class="dining-btn active py-2 px-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 flex flex-col items-center gap-1">
+                                <i class="fas fa-utensils text-lg"></i>
+                                <span>Dine In</span>
+                            </button>
+                            <button onclick="setDiningType('takeaway')" id="takeaway-btn" class="dining-btn py-2 px-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 flex flex-col items-center gap-1">
+                                <i class="fas fa-shopping-bag text-lg"></i>
+                                <span>Takeaway</span>
+                            </button>
+                            <button onclick="setDiningType('delivery')" id="delivery-btn" class="dining-btn py-2 px-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 flex flex-col items-center gap-1">
+                                <i class="fas fa-motorcycle text-lg"></i>
+                                <span>Delivery</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Table Number (for Dine In) -->
+                        <div id="table-input-container" class="mt-3">
+                            <label class="text-xs text-gray-600 dark:text-gray-400">Table Number</label>
+                            <input type="text" id="table-number" placeholder="e.g., T-12" 
+                                class="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm">
+                        </div>
+                        
+                        <!-- Delivery Info (hidden by default) -->
+                        <div id="delivery-info-container" class="mt-3 hidden space-y-2">
+                            <div>
+                                <label class="text-xs text-gray-600 dark:text-gray-400">Customer Name</label>
+                                <input type="text" id="customer-name" placeholder="Customer Name" 
+                                    class="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 dark:text-gray-400">Phone Number</label>
+                                <input type="tel" id="customer-phone" placeholder="03XX-XXXXXXX" 
+                                    class="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 dark:text-gray-400">Delivery Address</label>
+                                <textarea id="delivery-address" rows="2" placeholder="Full address..." 
+                                    class="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Order Items -->
+                    <div id="order-items" class="flex-1 overflow-y-auto p-4 space-y-3">
+                        <div class="text-center text-gray-400 py-8">
+                            <i class="fas fa-cart-plus text-4xl mb-3 opacity-50"></i>
+                            <p>No items added</p>
+                            <p class="text-sm">Select items from menu</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Order Summary -->
+                    <div class="p-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
+                        <div class="space-y-2 mb-4">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600 dark:text-gray-400">Subtotal</span>
+                                <span id="subtotal" class="font-medium text-gray-800 dark:text-white">Rs. 0</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600 dark:text-gray-400">Tax (16% GST)</span>
+                                <span id="tax" class="font-medium text-gray-800 dark:text-white">Rs. 0</span>
+                            </div>
+                            <div id="delivery-fee-row" class="flex justify-between text-sm hidden">
+                                <span class="text-gray-600 dark:text-gray-400">Delivery Fee</span>
+                                <span class="font-medium text-gray-800 dark:text-white">Rs. 100</span>
+                            </div>
+                            <div class="flex justify-between text-sm items-center">
+                                <span class="text-gray-600 dark:text-gray-400">Discount</span>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="discount-input" value="0" min="0" 
+                                        class="w-20 px-2 py-1 text-right text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                                        onchange="updateTotals()">
+                                    <select id="discount-type" onchange="updateTotals()" 
+                                        class="text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                                        <option value="fixed">Rs.</option>
+                                        <option value="percent">%</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="border-t border-gray-300 dark:border-gray-600 pt-2 flex justify-between text-lg font-bold">
+                                <span class="text-gray-800 dark:text-white">Total</span>
+                                <span id="total" class="text-orange-600 dark:text-orange-400">Rs. 0</span>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="clearOrder()" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                                Clear
+                            </button>
+                            <button onclick="processOrder()" class="px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/30">
+                                <i class="fas fa-check mr-2"></i>Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders List View -->
+            <div id="view-orders" class="hidden h-full overflow-y-auto p-6">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Order History</h2>
+                        <div class="flex gap-3">
+                            <select id="order-filter" onchange="renderOrders()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                                <option value="all">All Orders</option>
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                            </select>
+                            <button onclick="exportOrdersCSV()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                <i class="fas fa-download mr-2"></i>Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="orders-list" class="space-y-4">
+                        <!-- Orders injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports View -->
+            <div id="view-reports" class="hidden h-full overflow-y-auto p-6">
+                <div class="max-w-7xl mx-auto">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-6">Analytics Dashboard</h2>
+                    
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="stat-card rounded-xl p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Today's Orders</p>
+                                    <p id="stat-today-orders" class="text-3xl font-bold text-gray-800 dark:text-white mt-1">0</p>
+                                </div>
+                                <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-receipt text-orange-600 dark:text-orange-400 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card rounded-xl p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Today's Revenue</p>
+                                    <p id="stat-today-revenue" class="text-3xl font-bold text-gray-800 dark:text-white mt-1">Rs. 0</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-rupee-sign text-green-600 dark:text-green-400 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card rounded-xl p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Monthly Orders</p>
+                                    <p id="stat-month-orders" class="text-3xl font-bold text-gray-800 dark:text-white mt-1">0</p>
+                                </div>
+                                <div class="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-calendar-alt text-yellow-600 dark:text-yellow-400 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card rounded-xl p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Monthly Revenue</p>
+                                    <p id="stat-month-revenue" class="text-3xl font-bold text-gray-800 dark:text-white mt-1">Rs. 0</p>
+                                </div>
+                                <div class="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-chart-line text-red-600 dark:text-red-400 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Daily Revenue (Last 7 Days)</h3>
+                            <canvas id="revenue-chart" height="250"></canvas>
+                        </div>
+                        
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Top Selling Items</h3>
+                            <canvas id="items-chart" height="250"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Order Type Stats -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg mb-6">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Orders by Type</h3>
+                        <div id="order-type-stats" class="grid grid-cols-3 gap-4">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Category Performance -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Category Performance</h3>
+                        <div id="category-stats" class="space-y-3">
+                            <!-- Category stats injected by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Menu Management View -->
+            <div id="view-menu" class="hidden h-full overflow-y-auto p-6">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Menu Manager</h2>
+                        <div class="flex gap-2">
+                            <button onclick="openAddItemModal()" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2">
+                                <i class="fas fa-plus"></i>Add New Item
+                            </button>
+                            <button onclick="resetToDefaultMenu()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2">
+                                <i class="fas fa-undo"></i>Reset Default
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                        <p class="text-sm text-blue-800 dark:text-blue-200">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            <strong>Image Upload:</strong> Click "Add New Item" to upload images directly from your computer. 
+                            Images are automatically converted and stored in your browser. No external hosting needed!
+                        </p>
+                    </div>
+                    
+                    <div id="menu-management-list" class="space-y-4">
+                        <!-- Menu items for management injected by JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Item Customization Modal -->
+    <div id="item-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl transform transition-all scale-100">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h3 id="modal-item-name" class="text-xl font-bold text-gray-800 dark:text-white">Item Name</h3>
+                <button onclick="closeItemModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4" id="modal-content">
+                <!-- Dynamic content -->
+            </div>
+            
+            <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+                <button onclick="closeItemModal()" class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="addToOrder()" class="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors">
+                    Add to Order
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="add-item-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h3 id="add-item-title" class="text-xl font-bold text-gray-800 dark:text-white">Add New Menu Item</h3>
+                <button onclick="closeAddItemModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <!-- Image Upload Section -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Item Image</label>
+                    <div id="upload-container" class="upload-area rounded-lg p-8 text-center cursor-pointer" onclick="document.getElementById('image-input').click()">
+                        <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                        <div id="upload-placeholder">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+                            <p class="text-gray-600 dark:text-gray-400">Click to upload image</p>
+                            <p class="text-xs text-gray-500 mt-1">or drag and drop here</p>
+                            <p class="text-xs text-gray-400 mt-2">Supports: JPG, PNG, WEBP (Max 2MB)</p>
+                        </div>
+                        <img id="image-preview" class="image-preview mx-auto hidden">
+                    </div>
+                    <button onclick="clearImage()" id="clear-image-btn" class="hidden mt-2 text-sm text-red-600 hover:text-red-800">
+                        <i class="fas fa-trash mr-1"></i>Remove Image
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Item Name *</label>
+                        <input type="text" id="new-item-name" placeholder="e.g., Chicken Tikka Pizza" 
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category *</label>
+                        <select id="new-item-category" 
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                            <option value="pizza">Pizza</option>
+                            <option value="pasta">Pasta</option>
+                            <option value="beverages">Beverages</option>
+                            <option value="desserts">Desserts</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                    <textarea id="new-item-description" rows="2" placeholder="Brief description of the item..." 
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Base Price (Rs.) *</label>
+                    <input type="number" id="new-item-price" placeholder="1299" min="0" 
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                </div>
+
+                <!-- Options Section -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Size Options</label>
+                        <button onclick="addSizeOption()" class="text-sm text-orange-600 hover:text-orange-800 font-medium">
+                            <i class="fas fa-plus mr-1"></i>Add Size
+                        </button>
+                    </div>
+                    <div id="size-options-container" class="space-y-2">
+                        <!-- Size options injected here -->
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Extra Toppings/Options</label>
+                        <button onclick="addExtraOption()" class="text-sm text-orange-600 hover:text-orange-800 font-medium">
+                            <i class="fas fa-plus mr-1"></i>Add Option
+                        </button>
+                    </div>
+                    <div id="extra-options-container" class="space-y-2">
+                        <!-- Extra options injected here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+                <button onclick="closeAddItemModal()" class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="saveMenuItem()" class="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors">
+                    <i class="fas fa-save mr-2"></i>Save Item
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Modal -->
+    <div id="receipt-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg max-w-sm w-full shadow-2xl">
+            <div class="p-4 border-b flex justify-between items-center no-print">
+                <h3 class="font-bold text-gray-800">Receipt</h3>
+                <button onclick="closeReceiptModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div id="receipt-content" class="p-6">
+                <!-- Receipt content -->
+            </div>
+            
+            <div class="p-4 border-t flex gap-2 no-print">
+                <button onclick="printReceipt()" class="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+                    <i class="fas fa-print mr-2"></i>Print
+                </button>
+                <button onclick="closeReceiptModal()" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3">
+        <i class="fas fa-check-circle text-green-400"></i>
+        <span id="toast-message">Success!</span>
+    </div>
+
+    <script>
+        // ==================== DEFAULT MENU DATA ====================
+        
+        const defaultMenuData = [
+            {
+                id: 1,
+                name: "Chicken Tikka Pizza",
+                category: "pizza",
+                basePrice: 1299,
+                description: "Spicy chicken tikka with special Pakistani herbs",
+                image: "🍕",
+                options: {
+                    sizes: [
+                        { name: "Small (8\")", price: 0 },
+                        { name: "Medium (10\")", price: 300 },
+                        { name: "Large (12\")", price: 600 },
+                        { name: "Family (14\")", price: 900 }
+                    ],
+                    toppings: [
+                        { name: "Extra Cheese", price: 150 },
+                        { name: "Mushrooms", price: 100 },
+                        { name: "Olives", price: 100 }
+                    ]
+                }
+            },
+            {
+                id: 2,
+                name: "Pepperoni Feast",
+                category: "pizza",
+                basePrice: 1499,
+                description: "Loaded with beef pepperoni and mozzarella",
+                image: "🍕",
+                options: {
+                    sizes: [
+                        { name: "Small (8\")", price: 0 },
+                        { name: "Medium (10\")", price: 350 },
+                        { name: "Large (12\")", price: 700 }
+                    ],
+                    toppings: [
+                        { name: "Extra Pepperoni", price: 250 }
+                    ]
+                }
+            },
+            {
+                id: 3,
+                name: "BBQ Chicken Pizza",
+                category: "pizza",
+                basePrice: 1399,
+                description: "Grilled chicken with smoky BBQ sauce",
+                image: "🍕",
+                options: {
+                    sizes: [
+                        { name: "Small (8\")", price: 0 },
+                        { name: "Medium (10\")", price: 300 },
+                        { name: "Large (12\")", price: 600 }
+                    ]
+                }
+            },
+            {
+                id: 4,
+                name: "Fajita Pizza",
+                category: "pizza",
+                basePrice: 1199,
+                description: "Chicken fajita with onions and peppers",
+                image: "🍕",
+                options: {
+                    sizes: [
+                        { name: "Small (8\")", price: 0 },
+                        { name: "Medium (10\")", price: 250 },
+                        { name: "Large (12\")", price: 500 }
+                    ]
+                }
+            },
+            {
+                id: 5,
+                name: "Creamy Malai Boti Pizza",
+                category: "pizza",
+                basePrice: 1599,
+                description: "Premium malai boti with cream sauce",
+                image: "🍕",
+                options: {
+                    sizes: [
+                        { name: "Medium (10\")", price: 0 },
+                        { name: "Large (12\")", price: 400 }
+                    ]
+                }
+            },
+            {
+                id: 6,
+                name: "Chicken Alfredo Pasta",
+                category: "pasta",
+                basePrice: 899,
+                description: "Creamy white sauce with grilled chicken",
+                image: "🍝",
+                options: {
+                    sizes: [
+                        { name: "Regular", price: 0 },
+                        { name: "Large", price: 300 }
+                    ]
+                }
+            },
+            {
+                id: 7,
+                name: "Spicy Arrabbiata",
+                category: "pasta",
+                basePrice: 799,
+                description: "Tomato sauce with chili flakes",
+                image: "🍝",
+                options: {
+                    sizes: [
+                        { name: "Regular", price: 0 },
+                        { name: "Large", price: 250 }
+                    ]
+                }
+            },
+            {
+                id: 8,
+                name: "Fresh Lime Soda",
+                category: "beverages",
+                basePrice: 150,
+                description: "Refreshing lime with soda",
+                image: "🍋",
+                options: {
+                    sizes: [
+                        { name: "Regular", price: 0 },
+                        { name: "Large", price: 50 }
+                    ]
+                }
+            },
+            {
+                id: 9,
+                name: "Mango Lassi",
+                category: "beverages",
+                basePrice: 200,
+                description: "Traditional Pakistani yogurt drink",
+                image: "🥭",
+                options: {
+                    sizes: [
+                        { name: "Regular", price: 0 },
+                        { name: "Large", price: 100 }
+                    ]
+                }
+            },
+            {
+                id: 10,
+                name: "Karak Chai",
+                category: "beverages",
+                basePrice: 100,
+                description: "Strong Pakistani milk tea",
+                image: "☕",
+                options: {
+                    sizes: [
+                        { name: "Kullhad (Clay Cup)", price: 0 },
+                        { name: "Large Mug", price: 50 }
+                    ]
+                }
+            },
+            {
+                id: 11,
+                name: "Gulab Jamun",
+                category: "desserts",
+                basePrice: 200,
+                description: "Sweet fried dumplings in syrup",
+                image: "🍬",
+                options: {
+                    quantity: [
+                        { name: "2 Pieces", price: 0 },
+                        { name: "4 Pieces", price: 150 }
+                    ]
+                }
+            },
+            {
+                id: 12,
+                name: "Chocolate Lava Cake",
+                category: "desserts",
+                basePrice: 450,
+                description: "Warm cake with molten center",
+                image: "🍫",
+                options: {
+                    extras: [
+                        { name: "Vanilla Ice Cream", price: 150 }
+                    ]
+                }
+            }
+        ];
+
+        // Load menu from localStorage or use default
+        let menuData = JSON.parse(localStorage.getItem('quantum_pos_menu')) || JSON.parse(JSON.stringify(defaultMenuData));
+        
+        // Categories
+        const categories = [
+            { id: 'all', name: 'All Items', icon: 'fa-th-large' },
+            { id: 'pizza', name: 'Pizza', icon: 'fa-pizza-slice' },
+            { id: 'pasta', name: 'Pasta', icon: 'fa-utensils' },
+            { id: 'beverages', name: 'Beverages', icon: 'fa-glass-whiskey' },
+            { id: 'desserts', name: 'Desserts', icon: 'fa-ice-cream' }
+        ];
+
+        // State Management
+        let currentOrder = [];
+        let orders = JSON.parse(localStorage.getItem('quantum_pos_orders')) || [];
+        let currentCategory = 'all';
+        let selectedItem = null;
+        let currentItemOptions = {};
+        let diningType = 'dine-in';
+        let revenueChart = null;
+        let itemsChart = null;
+        let editingItemId = null;
+        let currentImageBase64 = null;
+        const DELIVERY_FEE = 100;
+
+        // ==================== INITIALIZATION ====================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeTheme();
+            updateTime();
+            setInterval(updateTime, 1000);
+            renderCategories();
+            renderMenu();
+            updateOrderDisplay();
+            updateStats();
+            
+            // Setup drag and drop for image upload
+            setupDragAndDrop();
+            
+            // Load sample data if empty
+            if (orders.length === 0) {
+                generateSampleData();
+            }
+        });
+
+        function initializeTheme() {
+            if (localStorage.getItem('theme') === 'dark' || 
+                (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        }
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+
+        function generateSampleData() {
+            const sampleOrders = [
+                {
+                    id: 'ORD-001',
+                    items: [
+                        { name: 'Chicken Tikka Pizza', quantity: 1, price: 1599, options: { sizes: 'Medium (10")' } },
+                        { name: 'Fresh Lime Soda', quantity: 2, price: 200, options: { sizes: 'Large' } }
+                    ],
+                    subtotal: 1799,
+                    tax: 287.84,
+                    discount: 0,
+                    deliveryFee: 0,
+                    total: 2086.84,
+                    timestamp: new Date(Date.now() - 86400000).toISOString(),
+                    status: 'completed',
+                    diningType: 'dine-in',
+                    tableNumber: 'T-05'
+                }
+            ];
+            orders = sampleOrders;
+            saveOrders();
+        }
+
+        // ==================== IMAGE UPLOAD HANDLING ====================
+
+        function setupDragAndDrop() {
+            const uploadContainer = document.getElementById('upload-container');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, () => {
+                    uploadContainer.classList.add('dragover');
+                }, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, () => {
+                    uploadContainer.classList.remove('dragover');
+                }, false);
+            });
+            
+            uploadContainer.addEventListener('drop', handleDrop, false);
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length) {
+                handleFiles(files[0]);
+            }
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFiles(file);
+            }
+        }
+
+        function handleFiles(file) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showToast('Please upload an image file', 'error');
+                return;
+            }
+            
+            // Validate file size (2MB max)
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('Image size should be less than 2MB', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentImageBase64 = e.target.result;
+                showImagePreview(currentImageBase64);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showImagePreview(base64) {
+            document.getElementById('upload-placeholder').classList.add('hidden');
+            const preview = document.getElementById('image-preview');
+            preview.src = base64;
+            preview.classList.remove('hidden');
+            document.getElementById('clear-image-btn').classList.remove('hidden');
+        }
+
+        function clearImage() {
+            currentImageBase64 = null;
+            document.getElementById('image-input').value = '';
+            document.getElementById('upload-placeholder').classList.remove('hidden');
+            document.getElementById('image-preview').classList.add('hidden');
+            document.getElementById('clear-image-btn').classList.add('hidden');
+        }
+
+        // ==================== MENU MANAGEMENT ====================
+
+        function openAddItemModal(itemId = null) {
+            editingItemId = itemId;
+            const modal = document.getElementById('add-item-modal');
+            const title = document.getElementById('add-item-title');
+            
+            // Reset form
+            clearImage();
+            document.getElementById('new-item-name').value = '';
+            document.getElementById('new-item-category').value = 'pizza';
+            document.getElementById('new-item-description').value = '';
+            document.getElementById('new-item-price').value = '';
+            
+            // Reset options
+            document.getElementById('size-options-container').innerHTML = '';
+            document.getElementById('extra-options-container').innerHTML = '';
+            
+            // Add default size option
+            addSizeOption();
+            
+            if (itemId) {
+                // Edit mode
+                const item = menuData.find(i => i.id === itemId);
+                title.textContent = 'Edit Menu Item';
+                document.getElementById('new-item-name').value = item.name;
+                document.getElementById('new-item-category').value = item.category;
+                document.getElementById('new-item-description').value = item.description || '';
+                document.getElementById('new-item-price').value = item.basePrice;
+                
+                // Load image if exists
+                if (item.image && (item.image.startsWith('data:') || item.image.startsWith('http'))) {
+                    currentImageBase64 = item.image;
+                    showImagePreview(item.image);
+                }
+                
+                // Load options
+                if (item.options) {
+                    if (item.options.sizes) {
+                        document.getElementById('size-options-container').innerHTML = '';
+                        item.options.sizes.forEach((size, idx) => addSizeOption(size.name, size.price));
+                    }
+                    if (item.options.toppings) {
+                        item.options.toppings.forEach(topping => addExtraOption(topping.name, topping.price));
+                    }
+                }
+            } else {
+                title.textContent = 'Add New Menu Item';
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeAddItemModal() {
+            document.getElementById('add-item-modal').classList.add('hidden');
+            document.getElementById('add-item-modal').classList.remove('flex');
+            editingItemId = null;
+        }
+
+        function addSizeOption(name = '', price = '') {
+            const container = document.getElementById('size-options-container');
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 items-center';
+            div.innerHTML = `
+                <input type="text" placeholder="Size name (e.g., Large)" value="${name}" 
+                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm size-name">
+                <input type="number" placeholder="Extra price" value="${price}" min="0" 
+                    class="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm size-price">
+                <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 p-2">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function addExtraOption(name = '', price = '') {
+            const container = document.getElementById('extra-options-container');
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 items-center';
+            div.innerHTML = `
+                <input type="text" placeholder="Option name (e.g., Extra Cheese)" value="${name}" 
+                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm extra-name">
+                <input type="number" placeholder="Price" value="${price}" min="0" 
+                    class="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm extra-price">
+                <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 p-2">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function saveMenuItem() {
+            const name = document.getElementById('new-item-name').value.trim();
+            const category = document.getElementById('new-item-category').value;
+            const description = document.getElementById('new-item-description').value.trim();
+            const basePrice = parseFloat(document.getElementById('new-item-price').value);
+            
+            if (!name || !basePrice) {
+                showToast('Please fill in all required fields', 'error');
+                return;
+            }
+            
+            // Collect size options
+            const sizes = [];
+            document.querySelectorAll('#size-options-container > div').forEach(div => {
+                const sizeName = div.querySelector('.size-name').value.trim();
+                const sizePrice = parseFloat(div.querySelector('.size-price').value) || 0;
+                if (sizeName) {
+                    sizes.push({ name: sizeName, price: sizePrice });
+                }
+            });
+            
+            // Collect extra options
+            const toppings = [];
+            document.querySelectorAll('#extra-options-container > div').forEach(div => {
+                const extraName = div.querySelector('.extra-name').value.trim();
+                const extraPrice = parseFloat(div.querySelector('.extra-price').value) || 0;
+                if (extraName) {
+                    toppings.push({ name: extraName, price: extraPrice });
+                }
+            });
+            
+            const itemData = {
+                id: editingItemId || Date.now(),
+                name,
+                category,
+                description,
+                basePrice,
+                image: currentImageBase64 || '🍽️',
+                options: {}
+            };
+            
+            if (sizes.length > 0) {
+                itemData.options.sizes = sizes;
+            }
+            if (toppings.length > 0) {
+                itemData.options.toppings = toppings;
+            }
+            
+            if (editingItemId) {
+                // Update existing
+                const index = menuData.findIndex(i => i.id === editingItemId);
+                if (index !== -1) {
+                    menuData[index] = itemData;
+                }
+                showToast('Item updated successfully!');
+            } else {
+                // Add new
+                menuData.push(itemData);
+                showToast('New item added to menu!');
+            }
+            
+            saveMenuData();
+            closeAddItemModal();
+            renderMenu();
+            renderMenuManagement();
+        }
+
+        function deleteMenuItem(itemId) {
+            if (confirm('Are you sure you want to delete this item?')) {
+                menuData = menuData.filter(i => i.id !== itemId);
+                saveMenuData();
+                renderMenu();
+                renderMenuManagement();
+                showToast('Item deleted');
+            }
+        }
+
+        function saveMenuData() {
+            localStorage.setItem('quantum_pos_menu', JSON.stringify(menuData));
+        }
+
+        function resetToDefaultMenu() {
+            if (confirm('This will reset all menu items to default. Continue?')) {
+                menuData = JSON.parse(JSON.stringify(defaultMenuData));
+                saveMenuData();
+                renderMenu();
+                renderMenuManagement();
+                showToast('Menu reset to default');
+            }
+        }
+
+        function renderMenuManagement() {
+            const container = document.getElementById('menu-management-list');
+            
+            container.innerHTML = categories.filter(c => c.id !== 'all').map(cat => {
+                const catItems = menuData.filter(item => item.category === cat.id);
+                return `
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center gap-3 mb-4">
+                            <i class="fas ${cat.icon} text-2xl text-orange-500"></i>
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white capitalize">${cat.name}</h3>
+                            <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded-full">
+                                ${catItems.length} items
+                            </span>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            ${catItems.map(item => {
+                                const isImage = item.image && (item.image.startsWith('data:') || item.image.startsWith('http'));
+                                return `
+                                <div class="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                    ${isImage ? 
+                                        `<img src="${item.image}" class="w-16 h-16 object-cover rounded-lg flex-shrink-0" onerror="this.style.display='none'">` :
+                                        `<div class="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-2xl flex-shrink-0">${item.image || '🍽️'}</div>`
+                                    }
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-medium text-gray-800 dark:text-white truncate">${item.name}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">Rs. ${item.basePrice}</p>
+                                        <p class="text-xs text-gray-400 truncate">${item.description || ''}</p>
+                                    </div>
+                                    <div class="flex gap-2 flex-shrink-0">
+                                        <button onclick="openAddItemModal(${item.id})" class="p-2 text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900 rounded-lg transition-colors" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="deleteMenuItem(${item.id})" class="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900 rounded-lg transition-colors" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `}).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==================== DINING TYPE ====================
+
+        function setDiningType(type) {
+            diningType = type;
+            
+            document.querySelectorAll('.dining-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`${type}-btn`).classList.add('active');
+            
+            const tableContainer = document.getElementById('table-input-container');
+            const deliveryContainer = document.getElementById('delivery-info-container');
+            const deliveryFeeRow = document.getElementById('delivery-fee-row');
+            
+            if (type === 'dine-in') {
+                tableContainer.classList.remove('hidden');
+                deliveryContainer.classList.add('hidden');
+                deliveryFeeRow.classList.add('hidden');
+            } else if (type === 'takeaway') {
+                tableContainer.classList.add('hidden');
+                deliveryContainer.classList.add('hidden');
+                deliveryFeeRow.classList.add('hidden');
+            } else if (type === 'delivery') {
+                tableContainer.classList.add('hidden');
+                deliveryContainer.classList.remove('hidden');
+                deliveryFeeRow.classList.remove('hidden');
+            }
+            
+            updateTotals();
+        }
+
+        // ==================== NAVIGATION ====================
+
+        function switchTab(tab) {
+            document.getElementById('view-pos').classList.add('hidden');
+            document.getElementById('view-orders').classList.add('hidden');
+            document.getElementById('view-reports').classList.add('hidden');
+            document.getElementById('view-menu').classList.add('hidden');
+            
+            document.querySelectorAll('[id^="tab-"]').forEach(t => {
+                t.classList.remove('tab-active');
+                t.classList.add('text-gray-600', 'dark:text-gray-400');
+            });
+            
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('tab-active');
+            document.getElementById(`tab-${tab}`).classList.remove('text-gray-600', 'dark:text-gray-400');
+            
+            if (tab === 'orders') {
+                renderOrders();
+            } else if (tab === 'reports') {
+                updateStats();
+                renderCharts();
+            } else if (tab === 'menu') {
+                renderMenuManagement();
+            }
+        }
+
+        // ==================== MENU & POS ====================
+
+        function renderCategories() {
+            const container = document.getElementById('category-buttons');
+            container.innerHTML = categories.map(cat => `
+                <button onclick="selectCategory('${cat.id}')" 
+                    class="category-btn ${cat.id === currentCategory ? 'active' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'} 
+                    px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap shadow-sm transition-all flex items-center gap-2">
+                    <i class="fas ${cat.icon}"></i>
+                    ${cat.name}
+                </button>
+            `).join('');
+        }
+
+        function selectCategory(catId) {
+            currentCategory = catId;
+            renderCategories();
+            renderMenu();
+        }
+
+        function renderMenu() {
+            const container = document.getElementById('menu-grid');
+            const searchTerm = document.getElementById('menu-search').value.toLowerCase();
+            
+            let filtered = menuData;
+            
+            if (currentCategory !== 'all') {
+                filtered = filtered.filter(item => item.category === currentCategory);
+            }
+            
+            if (searchTerm) {
+                filtered = filtered.filter(item => 
+                    item.name.toLowerCase().includes(searchTerm) || 
+                    item.description.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            container.innerHTML = filtered.map(item => {
+                const isImage = item.image && (item.image.startsWith('data:') || item.image.startsWith('http'));
+                
+                return `
+                <div onclick="openItemModal(${item.id})" 
+                    class="menu-item-card bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-200 dark:border-gray-700">
+                    ${isImage ? 
+                        `<img src="${item.image}" alt="${item.name}" class="menu-image" onerror="this.parentElement.innerHTML='<div class=\'image-placeholder\'>🍽️</div>' + this.parentElement.innerHTML; this.remove();">` :
+                        `<div class="image-placeholder">${item.image || '🍽️'}</div>`
+                    }
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-800 dark:text-white mb-1">${item.name}</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">${item.description || ''}</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-orange-600 dark:text-orange-400">Rs. ${item.basePrice}</span>
+                            <button class="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center text-orange-600 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-800 transition-colors">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function filterMenu() {
+            renderMenu();
+        }
+
+        function clearSearch() {
+            document.getElementById('menu-search').value = '';
+            renderMenu();
+        }
+
+        // ==================== ITEM MODAL ====================
+
+        function openItemModal(itemId) {
+            selectedItem = menuData.find(i => i.id === itemId);
+            currentItemOptions = {
+                quantity: 1,
+                selections: {}
+            };
+            
+            document.getElementById('modal-item-name').textContent = selectedItem.name;
+            
+            const isImage = selectedItem.image && (selectedItem.image.startsWith('data:') || selectedItem.image.startsWith('http'));
+            const imageDisplay = isImage ? 
+                `<img src="${selectedItem.image}" class="w-full h-48 object-cover rounded-lg mb-4" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                 <div class="hidden w-full h-48 bg-gray-200 rounded-lg items-center justify-center text-6xl mb-4">🍽️</div>` :
+                `<div class="text-6xl mb-4 text-center">${selectedItem.image || '🍽️'}</div>`;
+            
+            let html = `
+                <div class="text-center mb-4">
+                    ${imageDisplay}
+                    <p class="text-gray-600 dark:text-gray-400 text-sm">${selectedItem.description || ''}</p>
+                    <p class="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-2">Rs. ${selectedItem.basePrice}</p>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quantity</label>
+                    <div class="flex items-center justify-center gap-4">
+                        <button onclick="updateQuantity(-1)" class="quantity-btn w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center justify-center">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <span id="modal-quantity" class="text-xl font-bold text-gray-800 dark:text-white w-12 text-center">1</span>
+                        <button onclick="updateQuantity(1)" class="quantity-btn w-10 h-10 rounded-full bg-orange-600 text-white flex items-center justify-center">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            if (selectedItem.options) {
+                for (const [optionType, options] of Object.entries(selectedItem.options)) {
+                    html += `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 capitalize">
+                                ${optionType}
+                            </label>
+                            <div class="space-y-2">
+                    `;
+                    
+                    options.forEach((opt, idx) => {
+                        const priceText = opt.price > 0 ? `+Rs. ${opt.price}` : 'Included';
+                        html += `
+                            <label class="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <input type="radio" name="${optionType}" value="${idx}" 
+                                        ${idx === 0 ? 'checked' : ''}
+                                        onchange="selectOption('${optionType}', ${idx})"
+                                        class="w-4 h-4 text-orange-600">
+                                    <span class="text-gray-800 dark:text-white">${opt.name}</span>
+                                </div>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">${priceText}</span>
+                            </label>
+                        `;
+                    });
+                    
+                    html += `</div></div>`;
+                    
+                    if (options.length > 0) {
+                        currentItemOptions.selections[optionType] = 0;
+                    }
+                }
+            }
+            
+            html += `
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Special Instructions</label>
+                    <textarea id="special-instructions" rows="2" 
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm"
+                        placeholder="Any special requests..."></textarea>
+                </div>
+                
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 dark:text-gray-400">Item Total</span>
+                        <span id="modal-total" class="text-xl font-bold text-orange-600 dark:text-orange-400">Rs. ${selectedItem.basePrice}</span>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('item-modal').classList.remove('hidden');
+            document.getElementById('item-modal').classList.add('flex');
+            
+            updateModalTotal();
+        }
+
+        function closeItemModal() {
+            document.getElementById('item-modal').classList.add('hidden');
+            document.getElementById('item-modal').classList.remove('flex');
+            selectedItem = null;
+        }
+
+        function updateQuantity(change) {
+            const newQty = currentItemOptions.quantity + change;
+            if (newQty >= 1 && newQty <= 20) {
+                currentItemOptions.quantity = newQty;
+                document.getElementById('modal-quantity').textContent = newQty;
+                updateModalTotal();
+            }
+        }
+
+        function selectOption(optionType, index) {
+            currentItemOptions.selections[optionType] = index;
+            updateModalTotal();
+        }
+
+        function updateModalTotal() {
+            if (!selectedItem) return;
+            
+            let total = selectedItem.basePrice;
+            
+            for (const [optionType, selectedIdx] of Object.entries(currentItemOptions.selections)) {
+                const option = selectedItem.options[optionType][selectedIdx];
+                if (option) {
+                    total += option.price;
+                }
+            }
+            
+            total *= currentItemOptions.quantity;
+            
+            document.getElementById('modal-total').textContent = `Rs. ${total}`;
+        }
+
+        function addToOrder() {
+            if (!selectedItem) return;
+            
+            const orderItem = {
+                id: Date.now(),
+                menuId: selectedItem.id,
+                name: selectedItem.name,
+                basePrice: selectedItem.basePrice,
+                quantity: currentItemOptions.quantity,
+                options: {},
+                specialInstructions: document.getElementById('special-instructions')?.value || '',
+                total: 0
+            };
+            
+            let itemTotal = selectedItem.basePrice;
+            const optionDetails = [];
+            
+            for (const [optionType, selectedIdx] of Object.entries(currentItemOptions.selections)) {
+                const option = selectedItem.options[optionType][selectedIdx];
+                if (option) {
+                    orderItem.options[optionType] = option.name;
+                    itemTotal += option.price;
+                    if (option.price > 0 || optionType === 'sizes') {
+                        optionDetails.push(option.name);
+                    }
+                }
+            }
+            
+            orderItem.total = itemTotal * currentItemOptions.quantity;
+            orderItem.optionSummary = optionDetails.join(', ');
+            
+            currentOrder.push(orderItem);
+            updateOrderDisplay();
+            closeItemModal();
+            showToast('Item added to order');
+        }
+
+        // ==================== ORDER MANAGEMENT ====================
+
+        function updateOrderDisplay() {
+            const container = document.getElementById('order-items');
+            
+            if (current
